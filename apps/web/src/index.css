@@ -52,6 +52,7 @@ textarea {
    background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 100%);
    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
    -webkit-mask-composite: xor;
+   -webkit-mask-composite: exclude;
    mask-composite: exclude;
    pointer-events: none;
  }
@@ -112,3 +113,21 @@ textarea {
      transform: scale(0.96);
    }
  }
+
+@keyframes scanner {
+  0% { transform: translateX(-100%) skewX(-12deg); }
+  100% { transform: translateX(300%) skewX(-12deg); }
+}
+
+.animate-scanner {
+  animation: scanner 2s infinite ease-in-out;
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 12s linear infinite;
+}

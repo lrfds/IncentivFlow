@@ -1,72 +1,43 @@
-# 💎 IncentivFlow: Enterprise Projection Engine
+# 💎 IncentivFlow Diamond Enterprise
 
-![IncentivFlow Banner](./banner.png)
+Plataforma de alta performance para gestão do ciclo de vida de incentivos fiscais, construída com foco em **Imutabilidade**, **Inteligência de Dados** e **Governança**.
 
-> **The Gold Standard for Immutable Incentive Management.**
-> A high-performance, event-sourced monorepo built for transparency, security, and extreme scalability.
+## 🏛️ Arquitetura de Governança (RBAC)
+O sistema implementa o controle de acesso baseado em funções para blindagem operacional:
+- **CONSULTANT**: Operação diária (Cadastro 360, Agenda, Tracker).
+- **MANAGER**: Visão estratégica e Dashboard Financeiro.
+- **AUDITOR**: Validação da Hash Chain e integridade técnica.
 
----
+## 🛡️ Camadas de Confiança
+1. **Hash Chain Criptográfica**: Cada evento (Cadastro, Submissão, Mudança de Status) gera um elo imutável no banco de dados.
+2. **Audit Timeline**: Visualização transparente do rastro de auditoria para compliance.
+3. **Phase Engine**: Validador documental que impede submissões incompletas.
 
-## ⚡ Core Engine Pillars
+## 🧠 Inteligência Minerada
+- **Cadastro 360º**: Enriquecimento automático via BrasilAPI/OpenCNPJ.
+- **Financial Health Dashboard**: Projeções de faturamento baseadas em potencial real.
+- **PDF Dossier Engine**: Geração de documentos institucionais com selo de integridade SHA-256.
 
-| Feature | Description | Impact |
-| :--- | :--- | :--- |
-| **🛡️ Hash Chaining** | Blockchain-like immutability via SHA-256 chaining. | **100% Auditability** |
-| **🚀 Snapshot Engine** | State reconstruction in $O(1)$ time every 50 versions. | **Extreme Performance** |
-| **🧱 Multi-Tenant RLS** | Hardened isolation at the database query level. | **Military-Grade Privacy** |
-| **🔍 Zero-Trust Audit** | Real-time cryptographic verification in the browser. | **Absolute Transparency** |
+## 📨 Infraestrutura Resiliente (Render)
+- **API (Fastify + Prisma)**: Backend de alto desempenho.
+- **Outbox Worker**: Processamento assíncrono de notificações via Resend.
+- **Web Frontend (React 19)**: Interface modular com design Glassmorphism.
 
----
+## 🚀 Script de Produção
+Para rodar o ecossistema em ambiente local ou nuvem:
 
-## 🛠️ Tech Stack & Architecture
-
-![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
-![React](https://img.shields.it/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
-![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
-![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
-
-### Monorepo Structure
-- **`apps/web`**: Premium React dashboard with cryptographic Audit Timeline.
-- **`apps/api`**: Fastify-powered high-concurrency API.
-- **`packages/core`**: The mission-critical engine (Event Store, Projections, Snapshots).
-- **`packages/db`**: Centralized schema with automated tenant isolation extensions.
-- **`packages/api-client`**: Fully typed SDK for seamless frontend integration.
-
----
-
-## 🔒 Security & Compliance
-
-IncentivFlow is architected to exceed **SOC2** and **LGPD** requirements:
-- **Immutable Ledger**: No one, not even a DB admin, can alter history without breaking the hash chain.
-- **Client-Side Verification**: The UI re-calculates hashes locally using the `SubtleCrypto` API to ensure the server hasn't been compromised.
-- **Atomic Projections**: Strict versioning prevents race conditions and data corruption.
-
----
-
-## 🏗️ Quick Start (Production Ready)
-
-### Docker Deployment
 ```bash
-docker build -t incentivflow .
-docker run -p 3000:3000 incentivflow
-```
-
-### Local Development
-```bash
+# 1. Instalar Dependências
 npm install
+
+# 2. Sincronizar Banco de Dados
 npx prisma generate
-npm run dev
+npx prisma db push
+
+# 3. Rodar Serviços
+npm run dev # API + Web
+node dist/workers/outbox.worker.js # Background Worker
 ```
 
 ---
-
-## 📈 Roadmap & Certification
-This project is certified with the **Elite Architecture Seal**. For detailed technical specs, see [CERTIFICATION_REPORT.md](./CERTIFICATION_REPORT.md).
-
----
-
-<div align="center">
-  <sub>Built with 💙 by Staff Engineer AI & lrfds</sub>
-</div>
+**v2.5 Diamond - Excellence in Incentive Management** 🏆💎

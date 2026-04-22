@@ -1,21 +1,29 @@
-import { IncentivFlowClient } from '@incentivflow/api-client';
-import { QueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
+const isProduction = import.meta.env.MODE === 'production';
+const API_URL = isProduction 
+  ? window.location.origin 
+  : 'http://localhost:3000';
+
+export const api = {
+  client: axios.create({
+    baseURL: API_URL,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }),
+
+  // Métodos de Elite
+  async fetchClients() {
+    const { data } = await api.client.get('/api/clients');
+    return data;
   },
-});
 
-export const api = new IncentivFlowClient({
-  baseURL: (typeof window !== 'undefined' ? (window as any)._env_?.VITE_API_URL : null) || 
-           (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') 
-             ? window.location.origin 
-             : 'http://localhost:3000'),
-});
+  async get(url: string) {
+    return api.client.get(url);
+  },
 
-// Alias for compatibility
-export const apiClient = api;
+  async post(url: string, data: any) {
+    return api.client.post(url, data);
+  }
+};

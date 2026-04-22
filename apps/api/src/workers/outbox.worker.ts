@@ -1,249 +1,75 @@
-import { Worker, Job, Queue } from 'bullmq';
-import { rlsClient } from '../core/prisma.js';
+import { Resend } from 'resend';
+import { PrismaClient } from '@prisma/client';
 
-const prisma = rlsClient('SYSTEM', 'SYSTEM');
-import { OutboxStore } from '../modules/events/outbox.store.js';
-import { SnapshotStore } from '../modules/events/snapshot.store.js';
-import { EventStore } from '../modules/events/event.store.js';
+const prisma = new PrismaClient();
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-/**
- * OUTBOX WORKER - Elite Consistency
- * 
- * Processes outbox items with guarantee of delivery
- * - Polls unprocessed events
- * - Updates projections idempotently
- * - Creates snapshots
- * - Dead letter queue for failures
- */
+export async function processOutbox() {
+  console.log('📨 Iniciando ciclo de processamento do Outbox...');
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-};
-
-export const outboxWorker = new Worker(
-  'outbox',
-  async (job: Job<{ outboxId: string }>) => {
-    const { outboxId } = job.data;
-
-    const outbox = await prisma.outbox.findUnique({
-      where: { id: outboxId },
-      include: { event: true },
-    });
-
-    if (!outbox || outbox.processed) {
-      return { skipped: true, reason: 'Already processed or not found' };
-    }
-
-    try {
-      const event = outbox.event;
-
-      // Process based on event type
-      switch (event.type) {
-        case 'PROJECT_CREATED':
-        case 'PHASE_CHANGED':
-        case 'VALUE_APPROVED':
-        case 'VALUE_CAPTURED':
-        case 'PROJECT_UPDATED':
-          await processProjectProjection(event);
-          break;
-
-        case 'DOCUMENT_ADDED':
-          await processDocumentProjection(event);
-          break;
-
-        default:
-          console.warn(`[OUTBOX] Unknown event type: ${event.type}`);
-      }
-
-      // Mark as processed
-      await OutboxStore.markProcessed(outboxId);
-
-      return { 
-        success: true, 
-        eventId: event.id, 
-        type: event.type,
-        aggregateId: event.aggregateId,
-      };
-
-    } catch (error: any) {
-      console.error(`[OUTBOX] Failed to process ${outboxId}:`, error);
-      await OutboxStore.markFailed(outboxId, error.message);
-      throw error; // Retry via BullMQ
-    }
-  },
-  {
-    connection,
-    concurrency: 10,
-    limiter: { max: 100, duration: 1000 }, // 100/sec
-  }
-);
-
-/**
- * Process project projection with idempotency + snapshots
- */
-async function processProjectProjection(event: any) {
-  const { aggregateId } = event;
-
-  // 1. Rebuild state from events (with snapshot optimization)
-  const { state, fromSnapshot, eventsReplayed } = await SnapshotStore.rebuildFromSnapshot(aggregateId);
-
-  // Apply current event
-  const newState = EventStore['applyEvent'](state, event);
-  newState.version = event.version;
-  newState.lastEventAt = event.createdAt;
-
-  // 2. ELITE: Idempotent update - only if version is newer
-  const result = await prisma.project.updateMany({
-    where: {
-      id: aggregateId,
-      version: { lt: newState.version }, // ← IDEMPOTENCY GUARD
-    },
-    data: {
-      currentPhase: newState.currentPhase,
-      status: newState.status,
-      valueRequested: newState.valueRequested,
-      valueApproved: newState.valueApproved,
-      valueCaptured: newState.valueCaptured,
-      submittedAt: newState.submittedAt,
-      approvedAt: newState.approvedAt,
-      completedAt: newState.completedAt,
-      protocolNumber: newState.protocolNumber,
-      governmentBody: newState.governmentBody,
-      version: newState.version,
-      lastEventAt: newState.lastEventAt,
-    },
+  // 1. Busca eventos pendentes
+  const pendingTasks = await prisma.outbox.findMany({
+    where: { processed: false },
+    take: 10,
+    orderBy: { createdAt: 'asc' }
   });
 
-  if (result.count === 0) {
-    // Already processed (idempotent)
-    return { skipped: true, reason: 'Version already applied' };
+  if (pendingTasks.length === 0) {
+    console.log('✅ Outbox vazio. Nenhuma tarefa pendente.');
+    return;
   }
 
-  // 3. Update read model
-  await updateReadModel(aggregateId, newState);
-
-  // 4. ELITE: Create snapshot if needed
-  const snapshotCreated = await SnapshotStore.maybeCreateSnapshot(aggregateId, newState);
-
-  return {
-    updated: true,
-    version: newState.version,
-    fromSnapshot,
-    eventsReplayed,
-    snapshotCreated,
-  };
-}
-
-/**
- * Process document projection
- */
-async function processDocumentProjection(event: any) {
-  // Increment document count in read model
-  const projectId = event.aggregateId;
-  
-  await prisma.projectReadModel.updateMany({
-    where: { id: projectId },
-    data: {
-      documentsCount: { increment: 1 },
-      updatedAt: new Date(),
-    },
-  });
-
-  return { updated: true };
-}
-
-/**
- * Update materialized read model
- */
-async function updateReadModel(projectId: string, state: any) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: { client: true },
-  });
-
-  if (!project) return;
-
-  const captured = Number(state.valueCaptured ?? 0);
-  const approved = Number(state.valueApproved ?? 0);
-  const capturePercent = approved > 0 ? (captured / approved) * 100 : null;
-
-  const daysToDeadline = project.submissionDeadline
-    ? Math.ceil((project.submissionDeadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
-
-  await prisma.projectReadModel.upsert({
-    where: { id: projectId },
-    create: {
-      id: projectId,
-      organizationId: project.organizationId,
-      clientId: project.clientId,
-      clientName: project.client?.name,
-      code: project.code,
-      title: project.title,
-      phase: state.currentPhase || project.currentPhase,
-      status: state.status || project.status,
-      approvedValue: state.valueApproved,
-      capturedValue: state.valueCaptured,
-      capturePercent,
-      documentsCount: state.documentsCount || 0,
-      phasesCount: state.phasesCount || 0,
-      submissionDeadline: project.submissionDeadline,
-      daysToDeadline,
-      updatedAt: new Date(),
-    },
-    update: {
-      phase: state.currentPhase || project.currentPhase,
-      status: state.status || project.status,
-      approvedValue: state.valueApproved,
-      capturedValue: state.valueCaptured,
-      capturePercent,
-      daysToDeadline,
-      updatedAt: new Date(),
-    },
-  });
-}
-
-/**
- * Poller - enqueues unprocessed outbox items
- */
-const outboxQueue = new Queue('outbox', { connection });
-
-export async function startOutboxPoller() {
-  setInterval(async () => {
+  for (const task of pendingTasks) {
     try {
-      const items = await OutboxStore.getUnprocessed(50);
+      console.log(`🚀 Processando tarefa ${task.id} (${task.type})`);
       
-      for (const item of items) {
-        // Skip if recently failed (exponential backoff)
-        const minutesSinceAttempt = item.attempts > 0 
-          ? (Date.now() - item.createdAt.getTime()) / 60000 
-          : 999;
-        
-        const backoffMinutes = Math.pow(2, item.attempts); // 1, 2, 4, 8, 16
-        
-        if (minutesSinceAttempt < backoffMinutes) {
-          continue; // Wait for backoff
-        }
+      const payload = task.payload as any;
 
-        await outboxQueue.add('process', { outboxId: item.id }, {
-          jobId: `outbox-${item.id}`, // Dedupe
-          attempts: 5,
-          backoff: { type: 'exponential', delay: 1000 },
+      if (task.type === 'SEND_WELCOME_EMAIL') {
+        await resend.emails.send({
+          from: 'IncentivFlow <confirmacao@incentivflow.com>',
+          to: payload.to,
+          subject: '🔒 Dossiê de Elegibilidade Gerado com Sucesso',
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; color: #334155;">
+              <h1 style="color: #4f46e5;">Olá, ${payload.clientName}!</h1>
+              <p>Seu dossiê institucional foi minerado e assinado criptograficamente com sucesso.</p>
+              <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #4f46e5;">
+                <p style="margin: 0; font-size: 12px; color: #64748b;">HASH DE INTEGRIDADE (SHA-256):</p>
+                <code style="font-weight: bold; color: #1e293b;">${payload.hash}</code>
+              </div>
+              <p style="margin-top: 20px;">Acesse sua conta no IncentivFlow para visualizar os próximos passos da sua captação.</p>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+              <p style="font-size: 10px; color: #94a3b8;">v2.5 Diamond - Sistema de Auditoria Imutável</p>
+            </div>
+          `
         });
       }
+
+      // 2. Marca como processado com sucesso
+      await prisma.outbox.update({
+        where: { id: task.id },
+        data: { 
+          processed: true, 
+          processedAt: new Date() 
+        }
+      });
+      
+      console.log(`✅ Tarefa ${task.id} concluída com sucesso.`);
     } catch (error) {
-      console.error('[OUTBOX POLLER] Error:', error);
+      console.error(`❌ Erro ao processar tarefa ${task.id}:`, error);
+      // Aqui poderíamos logar o erro em uma tabela de logs externa
     }
-  }, 2000); // Poll every 2s
+  }
 }
 
-outboxWorker.on('completed', (job) => {
-  if (!job.returnvalue?.skipped) {
-    console.log(`[OUTBOX] Processed ${job.data.outboxId}`);
-  }
-});
-
-outboxWorker.on('failed', (job, err) => {
-  console.error(`[OUTBOX] Failed ${job?.data.outboxId}:`, err.message);
-});
+// Loop de execução (simulando um background worker)
+if (require.main === module) {
+  setInterval(async () => {
+    try {
+      await processOutbox();
+    } catch (e) {
+      console.error('Falha crítica no worker:', e);
+    }
+  }, 15000); // Executa a cada 15 segundos
+}
