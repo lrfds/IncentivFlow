@@ -20,6 +20,7 @@ RUN cd packages/db && npx prisma generate
 
 # Build all packages and apps
 COPY . .
+RUN rm -rf .env packages/db/.env apps/api/.env apps/web/.env
 RUN npm run build
 
 # STAGE 2: Production Runner
