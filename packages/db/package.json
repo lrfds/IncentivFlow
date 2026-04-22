@@ -1,0 +1,13 @@
+{
+  "name": "@incentivflow/db",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@prisma/client": "^5.10.2",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.10.2"
+  }
+}

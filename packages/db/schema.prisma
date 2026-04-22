@@ -1,0 +1,384 @@
+// IncentivFlow - Event Sourcing Architecture (Production-Grade)
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgcrypto]
+}
+
+// ==================== CORE TENANCY ====================
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  cnpj      String   @unique @db.VarChar(18)
+  plan      String   @default("PRO") @db.VarChar(20)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  users     User[]
+  clients   Client[]
+  projects  Project[]
+  events    Event[]
+  phaseConfigs PhaseConfig[]
+  cnpjLookups CnpjLookup[]
+
+  @@index([cnpj])
+  @@map("organizations")
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String   @db.VarChar(120)
+  email          String   @unique @db.VarChar(255)
+  passwordHash   String   @db.VarChar(255)
+  role           Role     @default(CONSULTOR)
+  avatarUrl      String?
+  lastLoginAt    DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email])
+  @@index([organizationId, role])
+  @@map("users")
+}
+
+model Client {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String   @db.VarChar(200)
+  cnpj           String   @db.VarChar(18)
+  sector         String   @db.VarChar(100)
+  contactName    String   @default("") @db.VarChar(120)
+  contactEmail   String   @db.VarChar(255)
+  contactPhone   String?  @db.VarChar(20)
+
+  // Enriched CNPJ dossier
+  razaoSocial    String?  @db.VarChar(200)
+  nomeFantasia   String?  @db.VarChar(200)
+  source         String?  @db.VarChar(30)
+  verifiedAt     DateTime? @db.Timestamptz(3)
+  dataAbertura   DateTime? @db.Date
+  situacaoCadastralCodigo String? @db.VarChar(10)
+  situacaoCadastralDescricao String? @db.VarChar(120)
+  situacaoCadastralData DateTime? @db.Date
+  situacaoCadastralMotivo String? @db.VarChar(200)
+  naturezaJuridicaCodigo String? @db.VarChar(10)
+  naturezaJuridicaDescricao String? @db.VarChar(200)
+  capitalSocial  Decimal? @db.Decimal(15, 2)
+  porte          String?  @db.VarChar(80)
+  enteFederativoResponsavel String? @db.VarChar(150)
+  situacaoEspecial String? @db.VarChar(150)
+  readinessScore Int?
+  readinessLabel String?  @db.VarChar(100)
+  incentiveBadges String[] @default([])
+
+  address        Json?
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projects     Project[]
+  cnaes        Cnae[]
+  sociosQsa    SocioQSA[]
+  cnpjLookups  CnpjLookup[]
+
+  @@unique([organizationId, cnpj])
+  @@index([organizationId, name])
+  @@index([organizationId, verifiedAt])
+  @@index([organizationId, sector])
+  @@map("clients")
+}
+
+// ==================== EVENT SOURCING (SOURCE OF TRUTH) ====================
+model Event {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  aggregateId    String   @db.Uuid  // projectId
+  aggregateType  String   @default("Project") @db.VarChar(50)
+  type           String   @db.VarChar(100)  // PROJECT_CREATED, PHASE_CHANGED, etc
+  version        Int      // sequence per aggregate
+  payload        Json     @db.JsonB
+  metadata       Json     @default("{}") @db.JsonB  // userId, ip, etc
+
+  // Hash chain for immutability
+  prevHash       String?  @db.Char(64)
+  hash           String   @db.Char(64)
+  
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outbox       Outbox?
+
+  @@unique([aggregateId, version])
+  @@index([organizationId, createdAt])
+  @@index([aggregateId, createdAt])
+  @@index([type, createdAt])
+  @@index([hash])
+  @@map("events")
+}
+
+// ==================== READ MODELS (PROJECTIONS) ====================
+model Project {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  clientId       String?  @db.Uuid
+  
+  // Denormalized for queries
+  code           String   @db.VarChar(50)
+  title          String   @db.VarChar(300)
+  description    String   @db.Text
+  status         ProjectStatus @default(EM_ANDAMENTO)
+  currentPhase   PhaseType @default(ELABORACAO)
+  
+  // Financial (from events)
+  valueRequested Decimal? @db.Decimal(15, 2)
+  valueApproved  Decimal? @db.Decimal(15, 2)
+  valueCaptured  Decimal? @db.Decimal(15, 2)
+  
+  // Deadlines
+  submissionDeadline DateTime? @db.Timestamptz(3)
+  submittedAt        DateTime? @db.Timestamptz(3)
+  approvedAt         DateTime? @db.Timestamptz(3)
+  completedAt        DateTime? @db.Timestamptz(3)
+  
+  // Metadata
+  protocolNumber String?  @db.VarChar(100)
+  governmentBody String?  @db.VarChar(200)
+  tags           String[]
+  
+  // Event sourcing
+  version        Int      @default(0)  // last event version
+  lastEventAt    DateTime @default(now()) @db.Timestamptz(3)
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@index([organizationId, currentPhase])
+  @@index([clientId, status])
+  @@index([submissionDeadline])
+  @@index([version])
+  @@map("projects")
+}
+
+// Materialized view for fast queries
+model ProjectReadModel {
+  id             String   @id @db.Uuid
+  organizationId String   @db.Uuid
+  clientId       String?  @db.Uuid
+  clientName     String?
+  
+  code           String
+  title          String
+  phase          String
+  status         String
+  
+  // Aggregated values
+  approvedValue  Decimal? @db.Decimal(15, 2)
+  capturedValue  Decimal? @db.Decimal(15, 2)
+  capturePercent Float?
+  
+  // Counts
+  documentsCount Int      @default(0)
+  phasesCount    Int      @default(0)
+  
+  // Dates
+  submissionDeadline DateTime? @db.Timestamptz(3)
+  daysToDeadline     Int?
+  
+  updatedAt DateTime @db.Timestamptz(3)
+
+  @@index([organizationId, phase])
+  @@index([organizationId, status])
+  @@index([daysToDeadline])
+  @@map("project_read_models")
+}
+
+// ==================== PHASE ENGINE (CONFIG-DRIVEN) ====================
+model PhaseConfig {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @db.Uuid  // null = global default
+  fromPhase      PhaseType
+  toPhase        PhaseType
+  rules          Json     @db.JsonB  // { conditions: [{type, value, message}] }
+  version        Int      @default(1)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, fromPhase, toPhase, version])
+  @@index([fromPhase, toPhase, isActive])
+  @@map("phase_configs")
+}
+
+// ==================== EVENT SOURCING ELITE ====================
+model Snapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  aggregateId String   @db.Uuid
+  aggregateType String @default("Project") @db.VarChar(50)
+  version     Int      // event version at snapshot time
+  state       Json     @db.JsonB
+  checksum    String   @db.Char(64)  // SHA256 of state
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([aggregateId, version])
+  @@index([aggregateId, version])
+  @@index([aggregateType, createdAt])
+  @@map("snapshots")
+}
+
+model Outbox {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventId   String   @unique @db.Uuid
+  aggregateId String @db.Uuid
+  type      String   @db.VarChar(100)
+  payload   Json     @db.JsonB
+  processed Boolean  @default(false)
+  attempts  Int      @default(0)
+  lastError String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  processedAt DateTime? @db.Timestamptz(3)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([processed, createdAt])
+  @@index([aggregateId])
+  @@index([type, processed])
+  @@map("outbox")
+}
+
+// ==================== SUPPORTING TABLES ====================
+model Document {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @db.Uuid
+  name         String   @db.VarChar(255)
+  originalName String   @db.VarChar(255)
+  mimeType     String   @db.VarChar(100)
+  size         Int
+  storageKey   String   @unique @db.VarChar(500)
+  checksum     String   @db.Char(64)  // SHA256
+  metadata     Json?    @db.JsonB
+  uploadedBy   String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([projectId, createdAt])
+  @@map("documents")
+}
+
+model FundingRecord {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @db.Uuid
+  type       String   @db.VarChar(20)  // SOLICITADO, APROVADO, CAPTADO
+  amount     Decimal  @db.Decimal(15, 2)
+  reference  String?  @db.VarChar(200)
+  recordDate DateTime @db.Timestamptz(3)
+  notes      String?  @db.Text
+  createdBy  String   @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([projectId, recordDate])
+  @@map("funding_records")
+}
+
+model Cnae {
+  id          String   @id @default(uuid()) @db.Uuid
+  clientId     String   @db.Uuid
+  codigo       String   @db.VarChar(20)
+  descricao    String   @db.VarChar(255)
+  isPrimary    Boolean  @default(false)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, isPrimary])
+  @@index([codigo])
+  @@unique([clientId, codigo, isPrimary])
+  @@map("client_cnaes")
+}
+
+model SocioQSA {
+  id                       String   @id @default(uuid()) @db.Uuid
+  clientId                 String   @db.Uuid
+  nome                     String   @db.VarChar(200)
+  qualificacao             String?  @db.VarChar(150)
+  paisOrigem               String?  @db.VarChar(100)
+  nomeRepresentante        String?  @db.VarChar(200)
+  qualificacaoRepresentante String? @db.VarChar(150)
+  faixaEtaria              String?  @db.VarChar(50)
+  dataEntrada              DateTime? @db.Date
+  createdAt                DateTime @default(now()) @db.Timestamptz(3)
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([nome])
+  @@map("client_socios_qsa")
+}
+
+model CnpjLookup {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  clientId       String?  @db.Uuid
+  cnpj           String   @db.VarChar(18)
+  queriedByUserId String? @db.Uuid
+  source         String   @db.VarChar(30)
+  cacheHit       Boolean  @default(false)
+  resultHash     String   @db.Char(64)
+  rawResponse    Json     @db.JsonB
+  analysis       Json?    @db.JsonB
+  queriedAt      DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt      DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, cnpj, queriedAt])
+  @@index([cnpj, expiresAt])
+  @@index([clientId, queriedAt])
+  @@map("cnpj_lookups")
+}
+
+// ==================== ENUMS ====================
+enum Role {
+  ADMIN
+  CONSULTOR
+  CLIENTE
+  AUDITOR
+}
+
+enum ProjectStatus {
+  EM_ANDAMENTO
+  APROVADO
+  CONCLUIDO
+  ARQUIVADO
+  CANCELADO
+}
+
+enum PhaseType {
+  ELABORACAO
+  APROVACAO_CLIENTE
+  SUBMISSAO
+  ACOMPANHAMENTO
+  POS_APROVACAO
+  CONCLUIDO
+}

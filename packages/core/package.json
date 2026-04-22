@@ -1,0 +1,15 @@
+{
+  "name": "@incentivflow/core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.2",
+    "bullmq": "^5.7.5",
+    "zod": "^3.22.4",
+    "crypto": "^1.0.1"
+  }
+}
