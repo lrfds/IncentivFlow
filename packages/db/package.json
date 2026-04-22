@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "main": "index.js",
+  "scripts": {
+    "build": "prisma generate"
+  },
   "dependencies": {
     "@prisma/client": "^5.10.2",
     "pg": "^8.20.0"

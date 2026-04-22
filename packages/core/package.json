@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "build": "tsc"
+  },
   "dependencies": {
     "@prisma/client": "^5.10.2",
     "bullmq": "^5.7.5",
