@@ -1,8 +1,8 @@
 // IncentivFlow - Event Sourcing Architecture (Production-Grade)
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
-  // postgresqlExtensions promovido para GA no Prisma v6 — previewFeatures removido
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"] // Ainda exigido no Prisma CLI 6.x para usar extensions = [pgcrypto]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
