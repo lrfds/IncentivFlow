@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, DollarSign, Target, PieChart, ArrowUpRight } from 'lucide-react';
-import { formatCurrency } from '../../../types';
+import { formatCurrency } from '../../types';
 
 export function FinancialHealthDashboard({ clients = [] }: { clients: any[] }) {
   // Inteligência de Projeção Diamond
