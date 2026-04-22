@@ -34,7 +34,7 @@ export class IncentivFlowClient {
       let currentTenantId = null;
 
       if (typeof window !== 'undefined') {
-        currentToken = currentToken || localStorage.getItem('incentivflow_token') || undefined;
+        currentToken = currentToken || localStorage.getItem('incentivflow_token') || null;
         currentTenantId = localStorage.getItem('incentivflow_tenant_id');
       }
       
