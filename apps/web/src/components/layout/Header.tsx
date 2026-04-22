@@ -8,11 +8,10 @@ interface HeaderProps {
   showNotifications: boolean;
   onToggleNotifications: () => void;
   onNotificationClick: (projectId: string) => void;
-  projects: Project[];
 }
 
 export function Header({
-  search, onSearchChange, notifications, showNotifications, onToggleNotifications, onNotificationClick, projects
+  search, onSearchChange, notifications, showNotifications, onToggleNotifications, onNotificationClick
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 glass-header">

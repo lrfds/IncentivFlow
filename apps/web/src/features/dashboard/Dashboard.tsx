@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { TrendingUp, Clock, CheckCircle2, AlertTriangle, FileText, Users } from 'lucide-react';
+import { TrendingUp, Clock, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 const PHASE_COLORS: Record<string, string> = {
@@ -125,7 +125,7 @@ export function Dashboard() {
                   paddingAngle={2}
                   dataKey="value"
                 >
-                  {pieData.map((entry, index) => (
+                  {pieData.map((_entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -134,7 +134,7 @@ export function Dashboard() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 space-y-2">
-            {pieData.map((item) => (
+            {pieData.map((item: any) => (
               <div key={item.name} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />

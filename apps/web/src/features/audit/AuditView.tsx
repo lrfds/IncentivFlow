@@ -1,4 +1,3 @@
-import React from 'react';
 import { Hash } from 'lucide-react';
 import type { AuditEntry } from '../../types';
 import { formatDateTime } from '../../types';

@@ -168,6 +168,18 @@ export class IncentivFlowClient {
       return response.data;
     },
   };
+
+  // ==========================================
+  // DASHBOARD & KPIS
+  // ==========================================
+  public getKPIs = async (): Promise<any> => {
+    const response = await this.api.get('/api/dashboard/kpis');
+    return response.data;
+  };
+
+  // Aliases for compatibility with legacy frontend code
+  public getProjects = (query?: any) => this.projects.list(query);
+  public transitionProject = (id: string, toPhase: string) => this.projects.changePhase(id, { targetPhase: toPhase } as any);
 }
 
 export * from './hooks.js';

@@ -1,9 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api, queryClient } from '../../lib/api';
-import { Search, Filter, ChevronRight, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Search, ChevronRight, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 const PHASE_META = {
   ELABORACAO: { label: 'Elaboração', color: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50' },
