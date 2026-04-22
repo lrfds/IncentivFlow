@@ -1,5 +1,6 @@
 # STAGE 1: Build (Elite Multi-stage build)
 FROM node:20-alpine AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # Install monorepo dependencies first for caching
@@ -28,6 +29,7 @@ ENV NODE_ENV production
 # Security: Best practice to run as non-root
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
+RUN apk add --no-cache openssl libc6-compat
 
 # Copy compiled artifacts only
 COPY --from=builder /app/node_modules ./node_modules
