@@ -1,6 +1,7 @@
 # STAGE 1: Build (Elite Multi-stage build)
 FROM node:20-alpine AS builder
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl libc6-compat
+RUN apk add --no-cache libssl1.1 --repository=http://dl-cdn.alpinelinux.org/alpine/v3.16/main/
 WORKDIR /app
 
 # Install monorepo dependencies first for caching
@@ -30,6 +31,7 @@ ENV NODE_ENV production
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 RUN apk add --no-cache openssl libc6-compat
+RUN apk add --no-cache libssl1.1 --repository=http://dl-cdn.alpinelinux.org/alpine/v3.16/main/
 
 # Copy compiled artifacts only
 COPY --from=builder /app/node_modules ./node_modules
