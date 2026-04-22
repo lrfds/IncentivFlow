@@ -2,7 +2,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
-  binaryTargets   = ["native", "linux-openssl-3.0.x"] // Debian slim (glibc) — não Alpine
+  binaryTargets   = ["native", "debian-openssl-3.0.x"] // Debian slim (glibc) — não Alpine
   engineType      = "library"
 }
 
