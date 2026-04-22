@@ -51,14 +51,6 @@ export function createProjectionWorker(prisma: PrismaClient, redisConnection: an
     },
     {
       connection: redisConnection,
-      // Global default resilience for every job processed by this worker
-      defaultJobOptions: {
-        attempts: 5,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
-        },
-      },
     }
   );
 
