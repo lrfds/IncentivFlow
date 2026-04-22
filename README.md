@@ -1,6 +1,6 @@
 # 💎 IncentivFlow: Enterprise Projection Engine
 
-![IncentivFlow Banner](./incentivflow_banner_1776872217482.png)
+![IncentivFlow Banner](./banner.png)
 
 > **The Gold Standard for Immutable Incentive Management.**
 > A high-performance, event-sourced monorepo built for transparency, security, and extreme scalability.

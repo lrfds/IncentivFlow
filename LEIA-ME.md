@@ -1,6 +1,6 @@
 # 💎 IncentivFlow: Enterprise Projection Engine
 
-![IncentivFlow Banner](./incentivflow_banner_1776872217482.png)
+![IncentivFlow Banner](./banner.png)
 
 > **O Padrão Ouro para Gestão de Incentivos Imutáveis.**
 > Um monorepo de alta performance, baseado em Event Sourcing, construído para transparência, segurança e escalabilidade extrema.
