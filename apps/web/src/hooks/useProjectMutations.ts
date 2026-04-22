@@ -38,7 +38,7 @@ export function useProjectMutations() {
       // Return context containing previous state for potential rollback
       return { previousProjects };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       // Rollback se falhar
       if (context?.previousProjects) {
         queryClient.setQueryData(['projects'], context.previousProjects);

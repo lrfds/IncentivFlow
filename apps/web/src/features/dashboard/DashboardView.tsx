@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Activity, DollarSign, TrendingUp, AlertTriangle, Users2, Plus, ChevronRight } from 'lucide-react';
 import type { Project } from '../../types';
 import { daysUntil, formatCurrency, formatDate } from '../../types';
