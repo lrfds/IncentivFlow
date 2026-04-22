@@ -17,6 +17,7 @@ WORKDIR /app
 # Copiar manifests primeiro (otimiza cache Docker)
 COPY package*.json ./
 COPY packages/db/package.json       ./packages/db/
+COPY packages/shared/package.json   ./packages/shared/
 COPY packages/core/package.json     ./packages/core/
 COPY packages/api-client/package.json ./packages/api-client/
 COPY apps/web/package.json          ./apps/web/
@@ -55,6 +56,7 @@ RUN addgroup --system --gid 1001 nodejs \
 
 # Copiar apenas artefatos de produção (imagem mínima)
 COPY --from=builder /app/node_modules          ./node_modules
+COPY --from=builder /app/packages/shared       ./packages/shared
 COPY --from=builder /app/packages/core         ./packages/core
 COPY --from=builder /app/packages/api-client   ./packages/api-client
 COPY --from=builder /app/packages/db           ./packages/db
