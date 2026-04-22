@@ -63,8 +63,10 @@ export async function processOutbox() {
   }
 }
 
-// Loop de execução (simulando um background worker)
-if (require.main === module) {
+// Loop de execução (background worker ESM-compatible)
+const isMain = process.argv[1]?.includes('outbox.worker');
+if (isMain) {
+  console.log('🟢 Outbox Worker iniciado. Aguardando eventos...');
   setInterval(async () => {
     try {
       await processOutbox();

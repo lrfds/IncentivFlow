@@ -1,8 +1,8 @@
 // IncentivFlow - Event Sourcing Architecture (Production-Grade)
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
-  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  // postgresqlExtensions promovido para GA no Prisma v6 — previewFeatures removido
 }
 
 datasource db {
@@ -100,6 +100,7 @@ model Client {
   @@index([organizationId, name])
   @@index([organizationId, verifiedAt])
   @@index([organizationId, sector])
+  @@index([metadata], type: Gin)   // Score de elegibilidade 360°: busca por badges e readiness
   @@map("clients")
 }
 
@@ -128,6 +129,8 @@ model Event {
   @@index([aggregateId, createdAt])
   @@index([type, createdAt])
   @@index([hash])
+  @@index([payload], type: Gin)    // Red Zone: busca por tipo de lei e status
+  @@index([metadata], type: Gin)   // Audit Chain: busca por userId, ip, contexto
   @@map("events")
 }
 
@@ -175,37 +178,42 @@ model Project {
   @@index([organizationId, status])
   @@index([organizationId, currentPhase])
   @@index([clientId, status])
-  @@index([submissionDeadline])
+  @@index([submissionDeadline])    // Red Zone: vencimentos críticos (base para índice parcial via SQL)
   @@index([version])
+  // Relação reversa com ProjectReadModel (FK explícita v6)
+  readModel ProjectReadModel?
   @@map("projects")
 }
 
-// Materialized view for fast queries
+// Materialized view for fast queries — sincronizada via SQL externo (REFRESH MATERIALIZED VIEW)
 model ProjectReadModel {
   id             String   @id @db.Uuid
   organizationId String   @db.Uuid
   clientId       String?  @db.Uuid
   clientName     String?
-  
+
   code           String
   title          String
   phase          String
   status         String
-  
+
   // Aggregated values
   approvedValue  Decimal? @db.Decimal(15, 2)
   capturedValue  Decimal? @db.Decimal(15, 2)
   capturePercent Float?
-  
+
   // Counts
   documentsCount Int      @default(0)
   phasesCount    Int      @default(0)
-  
+
   // Dates
   submissionDeadline DateTime? @db.Timestamptz(3)
   daysToDeadline     Int?
-  
+
   updatedAt DateTime @db.Timestamptz(3)
+
+  // FK explícita para integridade referencial (Prisma v6)
+  project Project @relation(fields: [id], references: [id], onDelete: Cascade)
 
   @@index([organizationId, phase])
   @@index([organizationId, status])
