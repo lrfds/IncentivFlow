@@ -5,6 +5,12 @@ import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
 import { z } from 'zod';
 import { rlsClient, DbClient } from './core/prisma.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fastifyStatic from '@fastify/static';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const systemDb = rlsClient('SYSTEM', 'SYSTEM');
 import { ProjectService } from './modules/project/project.service.js';
@@ -98,6 +104,14 @@ server.decorate('authorize', (permission: string) => {
     }
   };
 });
+
+// Serve Web App (SPA)
+await server.register(fastifyStatic, {
+  root: path.join(__dirname, '../../web/dist'),
+  prefix: '/',
+  wildcard: false,
+});
+
 
 // ==================== ROUTES ====================
 
@@ -380,6 +394,14 @@ server.get('/api/dashboard/kpis',
     };
   }
 );
+
+// SPA routing fallback - MUST BE LAST
+server.setNotFoundHandler((request, reply) => {
+  if (request.raw.url?.startsWith('/api')) {
+    return reply.code(404).send({ error: 'API route not found' });
+  }
+  return reply.sendFile('index.html');
+});
 
 // Start server
 const start = async () => {
