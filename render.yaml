@@ -1,0 +1,65 @@
+# IncentivFlow Black Label — Infrastructure as Code (Render)
+# Documentação: https://render.com/docs/infrastructure-as-code
+
+services:
+  # ─────────────────────────────────────────────
+  # 1. API + Frontend (Unified Docker Service)
+  # ─────────────────────────────────────────────
+  - type: web
+    name: incentivflow-api
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: incentivflow-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: incentivflow-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RESEND_API_KEY
+        sync: false          # Inserir manualmente no painel
+      - key: WEB_URLS
+        sync: false          # Ex: https://incentivflow.onrender.com
+      - key: RENDER_EXTERNAL_URL
+        sync: false          # Preenchido automaticamente pelo Render
+      - key: SEED_PHASES
+        value: "true"        # Apenas no primeiro boot
+
+  # ─────────────────────────────────────────────
+  # 2. Outbox Worker (Background Job)
+  # ─────────────────────────────────────────────
+  - type: worker
+    name: incentivflow-outbox-worker
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    dockerCommand: node apps/api/dist/workers/outbox.worker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: incentivflow-db
+          property: connectionString
+      - key: RESEND_API_KEY
+        sync: false
+
+# ─────────────────────────────────────────────
+# 3. Managed PostgreSQL (Pro Tier)
+# ─────────────────────────────────────────────
+databases:
+  - name: incentivflow-db
+    databaseName: incentivflow
+    plan: starter
+    region: oregon
+    ipAllowList: []          # Apenas acesso interno via private networking

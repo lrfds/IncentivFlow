@@ -1,12 +1,57 @@
+# ─────────────────────────────────────────
+# IncentivFlow — .dockerignore Diamond
+# Reduz contexto Docker e acelera builds
+# ─────────────────────────────────────────
+
+# Dependências (reinstaladas no build)
 node_modules
-npm-debug.log
+**/node_modules
+
+# Build artifacts (gerados no Docker)
 dist
+**/dist
+
+# Ambiente e segredos
 .env
 .env.*
+**/.env
+**/.env.*
+
+# Git
 .git
 .gitignore
-README.md
+.gitattributes
+
+# Documentação (não necessária no container)
+*.md
+ARCHITECTURE*
+LEIA-ME*
+MIGRATION-GUIDE*
+PRODUCTION-README*
+README*
+SISTEMA*
+STATUS*
+ELITE*
+VALIDATION*
+
+# Logs e debug
+*.log
+ts_errors*
+npm-debug.log*
+
+# Scripts de deploy (só para CI local)
+deploy.bat
+deploy.sh
+
+# Desenvolvimento local
+scratch/
+tests/
+.vscode/
+.idea/
+
+# Docker artifacts
 docker-compose.yml
-Dockerfile
-.vscode
-.idea
+.dockerignore
+
+# Migrations manuais (gerenciadas pelo Prisma no runtime)
+migrations/

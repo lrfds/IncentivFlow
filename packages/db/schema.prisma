@@ -2,8 +2,8 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
-  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
-  engineType      = "library" // Usa engine Node.js nativa — sem download de binários no Docker
+  binaryTargets   = ["native", "linux-openssl-3.0.x"] // Debian slim (glibc) — não Alpine
+  engineType      = "library"
 }
 
 datasource db {

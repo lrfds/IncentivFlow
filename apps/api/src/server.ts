@@ -25,6 +25,9 @@ import { PhaseType } from '@prisma/client';
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
   throw new Error('FATAL: JWT_SECRET must be defined in production. Boot aborted.');
 }
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  throw new Error('FATAL: JWT_SECRET must be at least 32 characters for security.');
+}
 
 const server = Fastify({
   logger: {
@@ -60,8 +63,11 @@ declare module 'fastify' {
 // Plugins
 const allowedOrigins = (process.env.WEB_URLS || process.env.WEB_URL || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/$/, '')) // remove trailing slash
   .filter(Boolean);
+
+// URL canônica do Render (remove trailing slash se presente)
+const RENDER_URL = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 
 await server.register(cors, {
   origin: (origin, callback) => {
@@ -72,7 +78,7 @@ await server.register(cors, {
 
     const isAllowed = allowedOrigins.includes(origin)
       || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
-      || origin.includes('onrender.com');
+      || (RENDER_URL && origin === RENDER_URL);
 
     callback(isAllowed ? null : new Error('Origin not allowed by CORS'), isAllowed);
   },
@@ -117,11 +123,14 @@ await server.register(fastifyStatic, {
 // ==================== ROUTES ====================
 
 // Health
-server.get('/health', async () => ({
-  status: 'ok',
-  timestamp: new Date().toISOString(),
-  version: '1.0.0',
-}));
+server.get('/health', async () => {
+  try {
+    await systemDb.$queryRaw`SELECT 1`;
+    return { status: 'ok', db: 'connected', version: '2.5-Diamond', ts: new Date().toISOString() };
+  } catch (e) {
+    return { status: 'degraded', db: 'disconnected', ts: new Date().toISOString() };
+  }
+});
 
 await registerCnpjRoutes(server);
 await registerClientRoutes(server);
@@ -439,7 +448,7 @@ const start = async () => {
           name: 'Master Admin',
           role: 'ADMIN',
           organizationId: org.id,
-          passwordHash: 'admin123' // In a real update, we'd use bcrypt, but for initial seed it matches the UI expectation
+          passwordHash: await import('bcryptjs').then(b => b.hash('admin123', 12))
         }
       });
       console.log(`👤 Master Admin created: ${adminEmail} / admin123`);
