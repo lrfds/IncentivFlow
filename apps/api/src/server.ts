@@ -71,7 +71,8 @@ await server.register(cors, {
     }
 
     const isAllowed = allowedOrigins.includes(origin)
-      || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      || origin.includes('onrender.com');
 
     callback(isAllowed ? null : new Error('Origin not allowed by CORS'), isAllowed);
   },
@@ -414,6 +415,34 @@ const start = async () => {
     if (process.env.SEED_PHASES === 'true') {
       await PhaseEngine.seedDefaults(systemDb);
       console.log('✅ Phase configs seeded');
+    }
+
+    // Ensure Master Admin exists for first login
+    const adminEmail = 'admin@incentivflow.com';
+    const adminExists = await systemDb.user.findUnique({ where: { email: adminEmail } });
+    
+    if (!adminExists) {
+      console.log('🌱 Seeding Master Admin...');
+      const org = await systemDb.organization.upsert({
+        where: { cnpj: '00.000.000/0001-00' },
+        update: {},
+        create: { 
+          name: 'IncentivFlow Master', 
+          cnpj: '00.000.000/0001-00',
+          plan: 'ENTERPRISE'
+        }
+      });
+
+      await systemDb.user.create({
+        data: {
+          email: adminEmail,
+          name: 'Master Admin',
+          role: 'ADMIN',
+          organizationId: org.id,
+          passwordHash: 'admin123' // In a real update, we'd use bcrypt, but for initial seed it matches the UI expectation
+        }
+      });
+      console.log(`👤 Master Admin created: ${adminEmail} / admin123`);
     }
   } catch (err) {
     server.log.error(err);
