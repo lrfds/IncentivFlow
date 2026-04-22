@@ -50,4 +50,5 @@ USER nextjs
 EXPOSE 3000
 
 # Default command starts the API (which might serve the Web app or work as a separate service)
-CMD ["node", "apps/api/dist/server.js"]
+# Start with automatic migrations
+CMD npx prisma migrate deploy --schema=./packages/db/schema.prisma && node apps/api/dist/server.js
