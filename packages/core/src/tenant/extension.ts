@@ -29,7 +29,7 @@ export function tenantIsolationExtension(organizationId: string) {
             operation === 'delete' ||
             operation === 'deleteMany'
           ) {
-            args.where = {
+            (args.where as any) = {
               ...args.where,
               organizationId,
             };
@@ -37,7 +37,7 @@ export function tenantIsolationExtension(organizationId: string) {
 
           // Inject organizationId into creations
           if (operation === 'create') {
-            args.data = {
+            (args.data as any) = {
               ...args.data,
               organizationId,
             };

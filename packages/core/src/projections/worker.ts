@@ -51,13 +51,6 @@ export function createProjectionWorker(prisma: PrismaClient, redisConnection: an
     },
     {
       connection: redisConnection,
-      settings: {
-        backoffStrategies: {
-          exponential: (attemptsMade: number) => {
-            return Math.pow(2, attemptsMade) * 1000; // Exponential backoff
-          },
-        },
-      },
       // Default retry strategy
       attempts: 5,
       backoff: {
