@@ -31,7 +31,7 @@ RUN adduser -S nextjs -u 1001
 
 # Copy compiled artifacts only
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/core/src ./packages/core/src
+COPY --from=builder /app/packages/core/dist ./packages/core/dist
 COPY --from=builder /app/packages/db ./packages/db
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
