@@ -6,6 +6,6 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build -w @incentivflow/shared && npm run build -w @incentivflow/api-client && npm run build -w @incentivflow/web"
   }
 }
