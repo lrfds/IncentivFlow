@@ -11,7 +11,10 @@ export const queryClient = new QueryClient({
 });
 
 export const api = new IncentivFlowClient({
-  baseURL: (typeof window !== 'undefined' ? (window as any)._env_?.VITE_API_URL : null) || 'http://localhost:3000',
+  baseURL: (typeof window !== 'undefined' ? (window as any)._env_?.VITE_API_URL : null) || 
+           (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') 
+             ? window.location.origin 
+             : 'http://localhost:3000'),
 });
 
 // Alias for compatibility
